@@ -1,0 +1,9 @@
+{
+  "name": "Ley Lines Explorer",
+  "short_name": "Ley Explorer",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#071426",
+  "theme_color": "#071426",
+  "description": "Explore imported proposed ley-line alignments and calculate the nearest line."
+}

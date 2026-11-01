@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#071426">
+<title>Ley Lines Explorer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+:root{color-scheme:dark;--bg:#071426;--panel:#0d2038;--gold:#ffc928;--muted:#a9b8ca;--line:#263c56}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f4f7fb;font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;background:#08172a;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px}.brand img{width:46px;height:46px}.brand h1{font:700 25px Georgia,serif;color:var(--gold);margin:0}.brand p{margin:2px 0 0;color:var(--muted);font:italic 13px Georgia,serif}
+.actions{display:flex;gap:8px;flex-wrap:wrap}button,.filelabel{border:1px solid #38516e;background:#132a45;color:#f4f7fb;padding:10px 13px;border-radius:9px;font-weight:600;cursor:pointer}button.primary{background:var(--gold);color:#171b20;border-color:var(--gold)}button:hover,.filelabel:hover{filter:brightness(1.12)}button:disabled{opacity:.5;cursor:not-allowed}
+main{display:grid;grid-template-columns:minmax(0,1fr) 330px;height:calc(100vh - 78px);min-height:520px}#map{height:100%;width:100%;background:#10243a}.side{padding:16px;background:var(--panel);border-left:1px solid var(--line);overflow:auto}.card{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:13px;background:#0a1a2e}.card h2{font-size:15px;margin:0 0 10px;color:var(--gold)}.big{font-size:25px;font-weight:750;margin:4px 0}.muted{color:var(--muted);font-size:13px;line-height:1.45}.status{display:inline-flex;align-items:center;gap:7px}.dot{width:8px;height:8px;border-radius:50%;background:#8a98a8}.dot.good{background:#2bd576}.dot.warn{background:#ffbd38}
+input[type=text]{width:100%;padding:10px;border:1px solid #38516e;border-radius:8px;background:#071426;color:white;margin:5px 0 8px}
+label.filelabel{display:inline-block}.hidden{display:none}.legend{display:flex;gap:9px;align-items:center;margin:7px 0;font-size:13px;color:var(--muted)}.swatch{width:22px;height:4px;background:var(--gold);border-radius:4px}.site{width:10px;height:10px;background:#b48cff;border-radius:50%}
+footer{font-size:11px;color:#8395aa;line-height:1.45;margin-top:14px}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#0d2038;color:#f4f7fb}.leaflet-control-attribution{font-size:10px}
+@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.brand h1{font-size:22px}main{display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 130px)}#map{height:58vh;min-height:360px}.side{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand"><img src="icon.svg" alt=""><div><h1>Ley Lines Explorer</h1><p>Discover. Explore. Connect.</p></div></div>
+ <div class="actions">
+  <button class="primary" id="locateBtn">◎ My location</button>
+  <button id="nearestBtn">Find nearest line</button>
+  <label class="filelabel" for="geoFile">Import GeoJSON</label><input class="hidden" id="geoFile" type="file" accept=".json,.geojson,application/geo+json,application/json">
+  <button id="installBtn" hidden>Install app</button>
+ </div>
+</header>
+<main>
+ <div id="map" aria-label="Interactive world map"></div>
+ <aside class="side">
+  <section class="card"><h2>Location</h2><div class="status"><span class="dot" id="gpsDot"></span><span id="gpsStatus">Location not requested</span></div><div class="big" id="coords">—</div><div class="muted" id="accuracy">Allow location access to show your position.</div></section>
+  <section class="card"><h2>Nearest mapped ley line</h2><div class="big" id="distance">—</div><div id="nearestName" class="muted">Load a line dataset and enable your location to calculate proximity.</div><div id="nearestExtra" class="muted"></div></section>
+  <section class="card"><h2>Map layers</h2><div class="legend"><span class="swatch"></span> Imported proposed alignments</div><div class="legend"><span class="site"></span> Imported landmark points</div><p class="muted">Use the layer control on the map to switch base layers.</p></section>
+  <section class="card"><h2>Load a dataset</h2><p class="muted">Import a GeoJSON FeatureCollection containing LineString or MultiLineString features. Optional properties: <b>name</b>, <b>source</b>, <b>status</b>. Point features can be used for landmarks.</p><button id="clearBtn">Clear imported data</button></section>
+  <section class="card"><h2>About the data</h2><p class="muted">“Ley lines” are a speculative cultural and historical concept, not scientifically established geographic structures. There is no universally accepted, authoritative global ley-line dataset. This map therefore starts without asserting that any particular alignment is real; import a dataset whose sources and methodology you can evaluate.</p></section>
+  <footer>Map data © OpenStreetMap contributors. GPS is requested only after you select “My location”; your browser may require HTTPS or localhost. Distance is measured to the nearest point on an imported line, not necessarily along a route.</footer>
+ </aside>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+<script>
+const map=L.map('map',{worldCopyJump:true}).setView([20,0],2);
+const streets=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'});
+const topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap'});
+streets.addTo(map); L.control.layers({'OpenStreetMap':streets,'Topographic':topo},{}).addTo(map);
+let lineLayer=L.geoJSON(null,{style:f=>({color:'#ffc928',weight:3,opacity:.9,dashArray:'8 5'}),onEachFeature:(f,l)=>l.bindPopup(`<b>${escapeHtml(f.properties?.name||'Unnamed proposed alignment')}</b><br>${escapeHtml(f.properties?.source||'Source not supplied')}<br><small>${escapeHtml(f.properties?.status||'Unclassified')}</small>`)}).addTo(map);
+let pointLayer=L.geoJSON(null,{pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:6,color:'#d6bdff',fillColor:'#9b6cff',fillOpacity:1,weight:2}),onEachFeature:(f,l)=>l.bindPopup(`<b>${escapeHtml(f.properties?.name||'Landmark')}</b><br>${escapeHtml(f.properties?.source||'Source not supplied')}`)}).addTo(map);
+let userMarker=null,accuracyCircle=null,userLatLng=null,nearestFeature=null,nearestMarker=null;
+const $=id=>document.getElementById(id);
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function setGps(ok,msg){$('gpsDot').className='dot '+(ok?'good':'warn');$('gpsStatus').textContent=msg;}
+function requestLocation(){
+ if(!navigator.geolocation){setGps(false,'Geolocation is not supported by this browser');return;}
+ setGps(false,'Requesting permission…');
+ navigator.geolocation.getCurrentPosition(pos=>{
+  userLatLng=L.latLng(pos.coords.latitude,pos.coords.longitude);
+  $('coords').textContent=`${pos.coords.latitude.toFixed(5)}°, ${pos.coords.longitude.toFixed(5)}°`;
+  $('accuracy').textContent=`Reported accuracy: ±${Math.round(pos.coords.accuracy)} m`;
+  setGps(true,'Location available');
+  if(userMarker)map.removeLayer(userMarker); if(accuracyCircle)map.removeLayer(accuracyCircle);
+  userMarker=L.marker(userLatLng).addTo(map).bindPopup('Your current location').openPopup();
+  accuracyCircle=L.circle(userLatLng,{radius:pos.coords.accuracy,color:'#3b82f6',fillOpacity:.08,weight:1}).addTo(map);
+  map.setView(userLatLng,8); findNearest();
+ },err=>{setGps(false,({1:'Permission denied',2:'Position unavailable',3:'Location request timed out'})[err.code]||err.message);$('accuracy').textContent='Check browser location permissions and HTTPS settings.';},{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+}
+function findNearest(){
+ if(!userLatLng){setGps(false,'Enable location first');return;}
+ const features=lineLayer.toGeoJSON().features.filter(f=>['LineString','MultiLineString'].includes(f.geometry?.type));
+ if(!features.length){$('distance').textContent='No line data';$('nearestName').textContent='Import a GeoJSON line dataset to calculate the nearest alignment.';$('nearestExtra').textContent='';return;}
+ const pt=turf.point([userLatLng.lng,userLatLng.lat]);let best=null;
+ for(const f of features){try{const snapped=turf.nearestPointOnLine(f,pt,{units:'kilometers'});const km=snapped.properties.dist;if(!best||km<best.km)best={feature:f,point:snapped,km};}catch(e){}}
+ if(!best)return;
+ nearestFeature=best.feature;$('distance').textContent=best.km<1?`${Math.round(best.km*1000)} m`:`${best.km.toFixed(2)} km`;
+ $('nearestName').textContent=best.feature.properties?.name||'Unnamed proposed alignment';
+ $('nearestExtra').textContent=`Nearest point: ${best.point.geometry.coordinates[1].toFixed(5)}, ${best.point.geometry.coordinates[0].toFixed(5)} · straight-line distance`;
+ if(nearestMarker)map.removeLayer(nearestMarker);
+ nearestMarker=L.circleMarker([best.point.geometry.coordinates[1],best.point.geometry.coordinates[0]],{radius:7,color:'#fff',weight:2,fillColor:'#ffc928',fillOpacity:1}).addTo(map).bindPopup('Nearest point on imported line');
+}
+$('locateBtn').addEventListener('click',requestLocation);$('nearestBtn').addEventListener('click',findNearest);
+$('geoFile').addEventListener('change',async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{const data=JSON.parse(await file.text());if(data.type!=='FeatureCollection'||!Array.isArray(data.features))throw new Error('Expected a GeoJSON FeatureCollection.');
+  const lines=data.features.filter(f=>['LineString','MultiLineString'].includes(f.geometry?.type));
+  const points=data.features.filter(f=>f.geometry?.type==='Point');
+  lineLayer.clearLayers();pointLayer.clearLayers();lineLayer.addData({type:'FeatureCollection',features:lines});pointLayer.addData({type:'FeatureCollection',features:points});
+  const all=L.featureGroup([lineLayer,pointLayer]);if(all.getLayers().length)map.fitBounds(all.getBounds().pad(.1));
+  $('nearestName').textContent=`Loaded ${lines.length} line feature(s) and ${points.length} point(s).`;findNearest();
+ }catch(err){alert('Could not load GeoJSON: '+err.message);}finally{e.target.value='';}
+});
+$('clearBtn').addEventListener('click',()=>{lineLayer.clearLayers();pointLayer.clearLayers();if(nearestMarker)map.removeLayer(nearestMarker);$('distance').textContent='—';$('nearestName').textContent='No imported line data.';$('nearestExtra').textContent='';});
+let deferredPrompt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').hidden=false;});
+$('installBtn').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('installBtn').hidden=true;});
+if('serviceWorker' in navigator && location.protocol!=='file:'){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+</body></html>
